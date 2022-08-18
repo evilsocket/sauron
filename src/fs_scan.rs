@@ -32,7 +32,7 @@ pub(crate) fn start(args: Arguments, engine: Engine) -> Result<(), String> {
         if !do_scan {
             if let Some(ext) = f_path.extension() {
                 for filter_ext in &args.ext {
-                    if filter_ext == &*ext.to_string_lossy() {
+                    if filter_ext.to_lowercase() == *ext.to_string_lossy().to_lowercase() {
                         do_scan = true;
                         break;
                     }
