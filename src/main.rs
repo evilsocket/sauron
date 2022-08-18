@@ -1,9 +1,9 @@
-use std::sync::mpsc::{channel, Receiver};
+use std::sync::mpsc::channel;
 use std::sync::Arc;
 use std::time::Duration;
 
 use clap::Parser;
-use notify::{watcher, DebouncedEvent, FsEventWatcher, RecursiveMode, Watcher};
+use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
 use threadpool::ThreadPool;
 
 mod scan;
@@ -27,17 +27,7 @@ struct Arguments {
     scan_timeout: i32,
 }
 
-type Err = String;
-
-fn setup() -> Result<
-    (
-        Arc<scan::Engine>,
-        FsEventWatcher,
-        Receiver<DebouncedEvent>,
-        ThreadPool,
-    ),
-    Err,
-> {
+fn main() -> Result<(), String> {
     pretty_env_logger::init();
 
     let args = Arguments::parse();
@@ -47,7 +37,7 @@ fn setup() -> Result<
         data_path: args.rules,
         timeout: args.scan_timeout,
     };
-    let engine = Arc::new(scan::Engine::new(config).unwrap());
+    let engine = Arc::new(scan::Engine::new(config)?);
 
     // create a recursive filesystem monitor for the ROOT_PATH
     log::info!("initializing filesystem monitor for '{}' ...", &args.root);
@@ -62,13 +52,6 @@ fn setup() -> Result<
     log::info!("initializing pool with {} workers ...", args.workers);
 
     let pool = ThreadPool::new(args.workers);
-
-    Ok((engine, watcher, rx, pool))
-}
-
-fn main() {
-    // initialize all the things!
-    let (engine, _watcher, rx, pool) = setup().unwrap();
 
     log::info!("running ...");
 
