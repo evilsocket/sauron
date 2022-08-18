@@ -18,7 +18,7 @@ sudo ./target/release/sauron --rules ./yara-rules
 
 ## Single Scan
 
-Alternatively you can perform a one-time recursive scan of the specified folder:
+Alternatively you can perform a one-time recursive scan of the specified folder using the `--scan` argument:
 
 ```sh
 sudo ./target/release/sauron --rules ./yara-rules --scan --root /path/to/scan
@@ -27,7 +27,14 @@ sudo ./target/release/sauron --rules ./yara-rules --scan --root /path/to/scan
 You can specify which file extensions to scan (all by default) with the `--ext` argument:
 
 ```sh
-sudo ./target/release/sauron --rules ./yara-rules --scan --root /path/to/scan --ext exe --ext elf --ext doc --ext docx
+sudo ./target/release/sauron \
+    --rules ./yara-rules \
+    --scan \
+    --root /path/to/scan \
+    --ext exe \
+    --ext elf \
+    --ext doc \
+    --ext docx
 ```
 
 ## License
