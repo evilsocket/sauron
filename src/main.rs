@@ -1,12 +1,12 @@
 use std::sync::mpsc::{channel, Receiver};
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use clap::Parser;
 use notify::{watcher, DebouncedEvent, FsEventWatcher, RecursiveMode, Watcher};
 use threadpool::ThreadPool;
-use walkdir::WalkDir;
-use yara::{Compiler, Rules};
+
+mod scan;
 
 #[derive(Parser, Default, Debug)]
 #[clap(
@@ -31,8 +31,7 @@ type Err = String;
 
 fn setup() -> Result<
     (
-        Arguments,
-        Arc<Rules>,
+        Arc<scan::Engine>,
         FsEventWatcher,
         Receiver<DebouncedEvent>,
         ThreadPool,
@@ -43,46 +42,12 @@ fn setup() -> Result<
 
     let args = Arguments::parse();
 
-    // create YARA compiler
-    let mut compiler = Compiler::new().map_err(|e| e.to_string())?;
-    let mut num_rules = 0;
-
-    log::info!("loading yara rules from '{}' ...", &args.rules);
-
-    // a single yara file has been passed as argument
-    if args.rules.ends_with(".yar") {
-        log::debug!("loading {} ...", &args.rules);
-        compiler = compiler
-            .add_rules_file(&args.rules)
-            .map_err(|e| format!("could not load {:?}: {:?}", &args.rules, e))?;
-        num_rules += 1;
-    } else {
-        // loop rules folder and load each .yar file
-        for entry in WalkDir::new(&args.rules)
-            .follow_links(true)
-            .into_iter()
-            .filter_map(|e| e.ok())
-        {
-            let f_name = entry.path().to_string_lossy();
-
-            if f_name.ends_with(".yar") {
-                log::debug!("loading {} ...", &f_name);
-                compiler = compiler
-                    .add_rules_file(&*f_name)
-                    .map_err(|e| format!("could not load {:?}: {:?}", f_name, e))?;
-                num_rules += 1;
-            }
-        }
-    }
-
-    // compile all rules
-    log::debug!("compiling {} rules ...", num_rules);
-
-    let start = Instant::now();
-
-    let rules = Arc::new(compiler.compile_rules().map_err(|e| e.to_string())?);
-
-    log::info!("{} rules compiled in {:?}", num_rules, start.elapsed());
+    // initialize the scan engine
+    let config = scan::Configuration {
+        data_path: args.rules,
+        timeout: args.scan_timeout,
+    };
+    let engine = Arc::new(scan::Engine::new(config).unwrap());
 
     // create a recursive filesystem monitor for the ROOT_PATH
     log::info!("initializing filesystem monitor for '{}' ...", &args.root);
@@ -98,12 +63,12 @@ fn setup() -> Result<
 
     let pool = ThreadPool::new(args.workers);
 
-    Ok((args, rules, watcher, rx, pool))
+    Ok((engine, watcher, rx, pool))
 }
 
 fn main() {
     // initialize all the things!
-    let (args, rules, _watcher, rx, pool) = setup().unwrap();
+    let (engine, _watcher, rx, pool) = setup().unwrap();
 
     log::info!("running ...");
 
@@ -118,45 +83,23 @@ fn main() {
                 | DebouncedEvent::Rename(_, path) => {
                     // if it's a file and it exists
                     if path.is_file() && path.exists() {
-                        // create a reference to the YARA rules and submit scan job to the threads pool
-                        let r = rules.clone();
+                        // create a reference to the engine
+                        // let r = rules.clone();
+                        let an_engine = engine.clone();
+                        // submit scan job to the threads pool
                         pool.execute(move || {
-                            // get file metadata
-                            match std::fs::metadata(&path) {
-                                Ok(meta) => {
-                                    // skip empty files
-                                    let file_size = meta.len();
-                                    if file_size == 0 {
-                                        log::trace!("ignoring empty file {:?}", &path);
-                                    } else {
-                                        log::debug!("scanning {:?} ({} bytes)", &path, file_size);
-                                        // scan this file with the loaded YARA rules
-                                        match r.scan_file(&path, args.scan_timeout) {
-                                            Ok(res) => {
-                                                // do we have any detection?
-                                                if res.len() > 0 {
-                                                    let detections = res
-                                                        .iter()
-                                                        .map(|x| x.identifier)
-                                                        .collect::<Vec<&str>>();
-
-                                                    log::warn!(
-                                                        "!!! MALWARE DETECTION: '{:?}' detected as '{:?}'",
-                                                        &path,
-                                                        detections.join(", ")
-                                                    );
-                                                }
-                                            }
-                                            Err(e) => {
-                                                log::debug!("error scanning '{:?}': {:?}", &path, e)
-                                            }
-                                        }
-                                    }
-                                }
-                                Err(e) => {
-                                    log::debug!("error getting '{:?}' metadata: {:?}", &path, e)
-                                }
-                            }});
+                            // perform the scanning
+                            let res = an_engine.scan(&path);
+                            if let Some(error) = res.error {
+                                log::debug!("{:?}", error)
+                            } else if res.detected {
+                                log::warn!(
+                                    "!!! MALWARE DETECTION: '{:?}' detected as '{:?}'",
+                                    &path,
+                                    res.tags.join(", ")
+                                );
+                            }
+                        });
                     }
                 }
 
