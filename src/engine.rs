@@ -93,36 +93,38 @@ impl Engine {
             .unwrap()
             .as_secs();
 
-        // get file metadata
-        match std::fs::metadata(&path) {
-            Ok(data) => {
-                // skip empty files
-                size = data.len();
-                if size == 0 {
-                    log::trace!("ignoring empty file {:?}", &path);
-                } else {
-                    let start = Instant::now();
+        if path.is_file() || path.is_symlink() {
+            // get file metadata
+            match std::fs::metadata(&path) {
+                Ok(data) => {
+                    // skip empty files
+                    size = data.len();
+                    if size == 0 {
+                        log::trace!("ignoring empty file {:?}", &path);
+                    } else {
+                        let start = Instant::now();
 
-                    // scan this file with the loaded YARA rules
-                    match self.rules.scan_file(&path, self.config.timeout) {
-                        Ok(matches) => {
-                            if !matches.is_empty() {
-                                detected = true;
-                                for rule in matches {
-                                    tags.push(rule.identifier.to_string());
+                        // scan this file with the loaded YARA rules
+                        match self.rules.scan_file(&path, self.config.timeout) {
+                            Ok(matches) => {
+                                if !matches.is_empty() {
+                                    detected = true;
+                                    for rule in matches {
+                                        tags.push(rule.identifier.to_string());
+                                    }
                                 }
                             }
+                            Err(e) => error = Some(format!("can't scan {:?}: {:?}", &path, e)),
                         }
-                        Err(e) => error = Some(format!("can't scan {:?}: {:?}", &path, e)),
+
+                        let elapsed = start.elapsed();
+                        time = elapsed.as_secs_f32();
+
+                        log::debug!("{:?} - {} bytes scanned in {:?} ", &path, size, elapsed);
                     }
-
-                    let elapsed = start.elapsed();
-                    time = elapsed.as_secs_f32();
-
-                    log::debug!("{:?} - {} bytes scanned in {:?} ", &path, size, elapsed);
                 }
+                Err(e) => error = Some(format!("can't get metadata for {:?}: {:?}", &path, e)),
             }
-            Err(e) => error = Some(format!("can't get metadata for {:?}: {:?}", &path, e)),
         }
 
         Detection {
