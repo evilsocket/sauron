@@ -6,6 +6,10 @@ Sauron is a minimalistic cross-platform malware scanner with non-blocking realti
 cargo build --release
 ```
 
+### Dependencies
+
+Your system must have `libssl-dev` installed. For Ubuntu-derivatives this can be installed via `sudo apt install libssl-dev`. 
+
 ## Running 
 
 Assuming you have your YARA rules in `./yara-rules` (you can find [plenty](https://github.com/elastic/protections-artifacts) of [free rules](https://github.com/Yara-Rules/rules) online):
