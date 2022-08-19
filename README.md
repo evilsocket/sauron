@@ -1,4 +1,21 @@
-Sauron is a minimalistic cross-platform malware scanner with non-blocking realtime filesystem monitoring using YARA rules, written in Rust.
+Sauron is a minimalistic, YARA based malware scanner with realtime filesystem monitoring written in Rust.
+
+## Features
+
+* Realtime scan of created and modified files supporting Linux `inotify`, macOS `FSEvents`, Windows `ReadDirectoryChanges` and polling for other platforms.
+* YARA engine complete support.
+* Single scan mode to scan a folder, report results and exit.
+* Parallel scanning using a configurable thread pool.
+* Log, text and JSON reporting.
+
+### Known Limitations
+
+Due to the filesystem monitoring mechanism, Sauron is extremely lightweight and non invasive as more sophisticated AV solutions, however this comes with the following limitations:
+
+* Scanning files with an exclusive lock by other processes will likely fail with a `Permission Denied` error.
+* Malicious files creation and execution won't be blocked but just reported.
+* [Fileless malware](https://en.wikipedia.org/wiki/Fileless_malware) won't be detected.
+* Detected files won't be linked to originating processes.
 
 ## Building
 
@@ -49,6 +66,8 @@ Various options are available for reporting:
 * `--report-errors` explicitly report errors (reported as debug logs by default).
 * `--report-output <FILENAME>` will write scan reports to a file.
 * `--report-json` if `--report-output` is passed, write as JSON instead of text.
+
+## Other options
 
 Run `sauron --help` for the complete list of options. 
 
