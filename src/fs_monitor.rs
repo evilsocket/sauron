@@ -6,6 +6,7 @@ use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
 use threadpool::ThreadPool;
 
 use crate::engine::Engine;
+use crate::report::report;
 use crate::Arguments;
 
 pub(crate) fn start(args: Arguments, engine: Engine) -> Result<(), String> {
@@ -44,15 +45,8 @@ pub(crate) fn start(args: Arguments, engine: Engine) -> Result<(), String> {
                         pool.execute(move || {
                             // perform the scanning
                             let res = an_engine.scan(&path);
-                            if let Some(error) = res.error {
-                                log::debug!("{:?}", error)
-                            } else if res.detected {
-                                log::warn!(
-                                    "!!! MALWARE DETECTION: '{:?}' detected as '{:?}'",
-                                    &path,
-                                    res.tags.join(", ")
-                                );
-                            }
+                            // handle reporting
+                            report(&path, res);
                         });
                     }
                 }

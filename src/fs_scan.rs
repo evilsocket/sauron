@@ -6,6 +6,7 @@ use threadpool::ThreadPool;
 use walkdir::WalkDir;
 
 use crate::engine::Engine;
+use crate::report::report;
 use crate::Arguments;
 
 pub(crate) fn start(args: Arguments, engine: Engine) -> Result<(), String> {
@@ -51,19 +52,13 @@ pub(crate) fn start(args: Arguments, engine: Engine) -> Result<(), String> {
             pool.execute(move || {
                 // perform the scanning
                 let res = an_engine.scan(&f_path);
-                if let Some(error) = res.error {
-                    log::debug!("{:?}", error)
-                } else if res.detected {
+                if res.detected {
                     num_detected.fetch_add(1, Ordering::SeqCst);
-
-                    log::warn!(
-                        "!!! MALWARE DETECTION: '{:?}' detected as '{:?}'",
-                        &f_path,
-                        res.tags.join(", ")
-                    );
                 }
-
                 num_scanned.fetch_add(1, Ordering::SeqCst);
+
+                // handle reporting
+                report(&f_path, res);
             });
         }
     }

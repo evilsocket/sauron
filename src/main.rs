@@ -3,6 +3,7 @@ use clap::Parser;
 mod engine;
 mod fs_monitor;
 mod fs_scan;
+mod report;
 
 #[derive(Parser, Default, Debug)]
 #[clap(
