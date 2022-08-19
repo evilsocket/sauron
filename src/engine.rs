@@ -80,6 +80,14 @@ impl Engine {
         let mut error: Option<Error> = None;
         let mut size: u64 = 0;
         let mut time: f32 = 0.0;
+        // make path absolute
+        let path = match std::fs::canonicalize(path) {
+            Ok(p) => p,
+            Err(e) => {
+                error = Some(format!("can't canonicalize {:?}: {:?}", path, e));
+                path.clone()
+            }
+        };
         let scanned_at = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
@@ -96,7 +104,7 @@ impl Engine {
                     let start = Instant::now();
 
                     // scan this file with the loaded YARA rules
-                    match self.rules.scan_file(path, self.config.timeout) {
+                    match self.rules.scan_file(&path, self.config.timeout) {
                         Ok(matches) => {
                             if !matches.is_empty() {
                                 detected = true;
@@ -105,19 +113,18 @@ impl Engine {
                                 }
                             }
                         }
-                        Err(e) => error = Some(format!("can't scan {:?}: {:?}", path, e)),
+                        Err(e) => error = Some(format!("can't scan {:?}: {:?}", &path, e)),
                     }
 
                     let elapsed = start.elapsed();
                     time = elapsed.as_secs_f32();
 
-                    log::debug!("{:?} - {} bytes scanned in {:?} ", path, size, elapsed);
+                    log::debug!("{:?} - {} bytes scanned in {:?} ", &path, size, elapsed);
                 }
             }
-            Err(e) => error = Some(format!("can't get metadata for {:?}: {:?}", path, e)),
+            Err(e) => error = Some(format!("can't get metadata for {:?}: {:?}", &path, e)),
         }
 
-        let path = path.clone();
         Detection {
             path,
             size,
