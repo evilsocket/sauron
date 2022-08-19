@@ -5,7 +5,7 @@ mod fs_monitor;
 mod fs_scan;
 mod report;
 
-#[derive(Parser, Default, Debug)]
+#[derive(Parser, Default, Debug, Clone)]
 #[clap(
     about = "Minimalistic cross-platform filesystem monitor and malware scanner using YARA rules."
 )]
@@ -28,6 +28,15 @@ struct Arguments {
     /// Only scan files with the specified extension if --scan is used, can be passed multiple times.
     #[clap(long)]
     ext: Vec<String>,
+    /// Report clean files along with malware detections.
+    #[clap(long, takes_value = false)]
+    report_clean: bool,
+    /// Report scan errors.
+    #[clap(long, takes_value = false)]
+    report_errors: bool,
+    /// Write scanning report to this file.
+    #[clap(long)]
+    report_output: Option<String>,
 }
 
 fn main() -> Result<(), String> {
@@ -42,11 +51,14 @@ fn main() -> Result<(), String> {
     };
     let engine = engine::Engine::new(config)?;
 
+    // initialize the reporting engine
+    let report = report::Report::setup(&args)?;
+
     if args.scan {
         // perform a scan of the root folder and exit
-        fs_scan::start(args, engine)
+        fs_scan::start(args, engine, report)
     } else {
         // monitor the filesystem
-        fs_monitor::start(args, engine)
+        fs_monitor::start(args, engine, report)
     }
 }

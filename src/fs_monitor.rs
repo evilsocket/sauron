@@ -1,15 +1,15 @@
 use std::sync::mpsc::channel;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use notify::{watcher, DebouncedEvent, RecursiveMode, Watcher};
 use threadpool::ThreadPool;
 
 use crate::engine::Engine;
-use crate::report::report;
+use crate::report::Report;
 use crate::Arguments;
 
-pub(crate) fn start(args: Arguments, engine: Engine) -> Result<(), String> {
+pub(crate) fn start(args: Arguments, engine: Engine, report: Report) -> Result<(), String> {
     // create a recursive filesystem monitor for the root path
     log::info!("initializing filesystem monitor for '{}' ...", &args.root);
 
@@ -27,6 +27,7 @@ pub(crate) fn start(args: Arguments, engine: Engine) -> Result<(), String> {
     log::info!("running ...");
 
     let engine = Arc::new(engine);
+    let report = Arc::new(Mutex::new(report));
 
     // receive filesystem events
     loop {
@@ -39,14 +40,19 @@ pub(crate) fn start(args: Arguments, engine: Engine) -> Result<(), String> {
                 | DebouncedEvent::Rename(_, path) => {
                     // if it's a file and it exists
                     if path.is_file() && path.exists() {
-                        // create a reference to the engine
-                        let an_engine = engine.clone();
+                        // create thread safe references
+                        let engine = engine.clone();
+                        let report = report.clone();
                         // submit scan job to the threads pool
                         pool.execute(move || {
                             // perform the scanning
-                            let res = an_engine.scan(&path);
+                            let res = engine.scan(&path);
                             // handle reporting
-                            report(&path, res);
+                            if let Ok(mut report) = report.lock() {
+                                if let Err(e) = report.report(&path, res) {
+                                    log::error!("reporting error: {:?}", e);
+                                }
+                            }
                         });
                     }
                 }

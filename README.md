@@ -41,6 +41,16 @@ sudo ./target/release/sauron \
     --ext docx
 ```
 
+## Reporting
+
+Various options are available for reporting:
+
+* `--report-clean` will also report clean files.
+* `--report-errors` explicitly report errors (reported as debug logs by default).
+* `--report-output <FILENAME>` will write scan reports to a file.
+
+Run `sauron --help` for the complete list of options. 
+
 ## License
 
 This project is made with ♥  by [@evilsocket](https://twitter.com/evilsocket) and it is released under the GPL3 license.

@@ -1,15 +1,15 @@
 use std::sync::atomic::{AtomicU32, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
 use threadpool::ThreadPool;
 use walkdir::WalkDir;
 
 use crate::engine::Engine;
-use crate::report::report;
+use crate::report::Report;
 use crate::Arguments;
 
-pub(crate) fn start(args: Arguments, engine: Engine) -> Result<(), String> {
+pub(crate) fn start(args: Arguments, engine: Engine, report: Report) -> Result<(), String> {
     log::info!("initializing pool with {} workers ...", args.workers);
 
     let pool = ThreadPool::new(args.workers);
@@ -17,6 +17,7 @@ pub(crate) fn start(args: Arguments, engine: Engine) -> Result<(), String> {
     log::info!("scanning {} ...", &args.root);
 
     let engine = Arc::new(engine);
+    let report = Arc::new(Mutex::new(report));
     let start = Instant::now();
     let num_scanned = Arc::new(AtomicU32::new(0));
     let num_detected = Arc::new(AtomicU32::new(0));
@@ -47,6 +48,7 @@ pub(crate) fn start(args: Arguments, engine: Engine) -> Result<(), String> {
             let f_path = f_path.to_path_buf();
             let num_scanned = num_scanned.clone();
             let num_detected = num_detected.clone();
+            let report = report.clone();
 
             // submit scan job to the threads pool
             pool.execute(move || {
@@ -58,7 +60,11 @@ pub(crate) fn start(args: Arguments, engine: Engine) -> Result<(), String> {
                 num_scanned.fetch_add(1, Ordering::SeqCst);
 
                 // handle reporting
-                report(&f_path, res);
+                if let Ok(mut report) = report.lock() {
+                    if let Err(e) = report.report(&f_path, res) {
+                        log::error!("reporting error: {:?}", e);
+                    }
+                }
             });
         }
     }
