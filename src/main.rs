@@ -16,7 +16,7 @@ struct Arguments {
     #[clap(long)]
     rules: String,
     /// Number of worker threads used for scanning.
-    #[clap(long, default_value_t = 32)]
+    #[clap(long, default_value_t = num_cpus::get() * 2)]
     workers: usize,
     /// Scan timeout in seconds.
     #[clap(long, default_value_t = 30)]

@@ -641,6 +641,7 @@ dependencies = [
  "clap",
  "log",
  "notify",
+ "num_cpus",
  "pretty_env_logger",
  "threadpool",
  "walkdir",
