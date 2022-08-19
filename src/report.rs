@@ -36,6 +36,47 @@ impl Report {
         })
     }
 
+    fn write_to_file_if_needed(
+        &mut self,
+        detection: Detection,
+        message: String,
+        to_json: Option<Detection>,
+    ) -> Result<(), Error> {
+        // if file reporting is enabled
+        if let Some(output) = &mut self.output {
+            let mut data = String::new();
+
+            if self.args.report_json && to_json.is_some() {
+                // JSON reporting is enabled and we have a detection to report
+                self.detections.push(detection);
+                // reset file
+                output.set_len(0).map_err(|e| e.to_string())?;
+                output.seek(SeekFrom::Start(0)).map_err(|e| e.to_string())?;
+                // serialize detections array, using format instead of whole object serialization
+                // in order to borrow unmutable references to self
+                data = format!(
+                    "{{\"detections\":{}}}",
+                    serde_json::to_string(&self.detections).map_err(|e| e.to_string())?
+                );
+            } else if !message.is_empty() {
+                // plain text reporting
+                data = format!("{}\n", &message);
+            }
+
+            // any data at all to write?
+            if !data.is_empty() {
+                // write to file
+                output
+                    .write_all(data.as_bytes())
+                    .map_err(|e| e.to_string())?;
+                // flush
+                output.flush().map_err(|e| e.to_string())?;
+            }
+        }
+
+        Ok(())
+    }
+
     pub fn report(&mut self, detection: Detection) -> Result<(), Error> {
         let mut message = String::new();
         let mut to_json: Option<Detection> = None;
@@ -65,37 +106,6 @@ impl Report {
             log::info!("{}", &message);
         }
 
-        // if file reporting is enabled
-        if let Some(output) = &mut self.output {
-            let mut data = String::new();
-
-            if self.args.report_json && to_json.is_some() {
-                // JSON reporting is enabled and we have a detection to report
-                self.detections.push(detection);
-                // reset file
-                output.set_len(0).map_err(|e| e.to_string())?;
-                output.seek(SeekFrom::Start(0)).map_err(|e| e.to_string())?;
-                // serialize detections array, using format instead of whole object serialization
-                // in order to borrow unmutable references to self
-                data = format!(
-                    "{{\"detections\":{}}}",
-                    serde_json::to_string(&self.detections).map_err(|e| e.to_string())?
-                );
-            } else if !message.is_empty() {
-                // plain text reporting
-                data = format!("{}\n", &message);
-            }
-
-            if !data.is_empty() {
-                // write to file
-                output
-                    .write_all(data.as_bytes())
-                    .map_err(|e| e.to_string())?;
-                // flush
-                output.flush().map_err(|e| e.to_string())?;
-            }
-        }
-
-        Ok(())
+        self.write_to_file_if_needed(detection, message, to_json)
     }
 }
