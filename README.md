@@ -12,7 +12,7 @@ Your system must have `libssl-dev` installed. For Ubuntu-derivatives this can be
 
 ## Running 
 
-Assuming you have your YARA rules in `./yara-rules` (you can find [plenty](https://github.com/elastic/protections-artifacts) of [free rules](https://github.com/Yara-Rules/rules) online):
+Assuming you have your YARA rules in `./yara-rules` (you can find [plenty of free rules](https://github.com/InQuest/awesome-yara) online):
 
 ```sh
 sudo ./target/release/sauron --rules ./yara-rules
