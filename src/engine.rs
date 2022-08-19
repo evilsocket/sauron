@@ -1,14 +1,19 @@
 use std::path::PathBuf;
-use std::time::Instant;
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
+use serde::Serialize;
 use walkdir::WalkDir;
 use yara::{Compiler, Rules};
 
 pub type Error = String;
 pub type Tag = String;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 pub struct Detection {
+    pub path: PathBuf,
+    pub size: u64,
+    pub scanned_at: u64,
+    pub time: f32,
     pub error: Option<Error>,
     pub detected: bool,
     pub tags: Vec<Tag>,
@@ -73,13 +78,19 @@ impl Engine {
         let mut detected = false;
         let mut tags = vec![];
         let mut error: Option<Error> = None;
+        let mut size: u64 = 0;
+        let mut time: f32 = 0.0;
+        let scanned_at = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
 
         // get file metadata
         match std::fs::metadata(&path) {
             Ok(data) => {
                 // skip empty files
-                let file_size = data.len();
-                if file_size == 0 {
+                size = data.len();
+                if size == 0 {
                     log::trace!("ignoring empty file {:?}", &path);
                 } else {
                     let start = Instant::now();
@@ -97,18 +108,21 @@ impl Engine {
                         Err(e) => error = Some(format!("can't scan {:?}: {:?}", path, e)),
                     }
 
-                    log::debug!(
-                        "{:?} - {} bytes scanned in {:?} ",
-                        path,
-                        file_size,
-                        start.elapsed()
-                    );
+                    let elapsed = start.elapsed();
+                    time = elapsed.as_secs_f32();
+
+                    log::debug!("{:?} - {} bytes scanned in {:?} ", path, size, elapsed);
                 }
             }
             Err(e) => error = Some(format!("can't get metadata for {:?}: {:?}", path, e)),
         }
 
+        let path = path.clone();
         Detection {
+            path,
+            size,
+            scanned_at,
+            time,
             detected,
             tags,
             error,

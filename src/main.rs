@@ -37,6 +37,9 @@ struct Arguments {
     /// Write scanning report to this file.
     #[clap(long)]
     report_output: Option<String>,
+    /// If --report-output is passed, write as JSON instead of text.
+    #[clap(long, takes_value = false)]
+    report_json: bool,
 }
 
 fn main() -> Result<(), String> {

@@ -48,6 +48,7 @@ Various options are available for reporting:
 * `--report-clean` will also report clean files.
 * `--report-errors` explicitly report errors (reported as debug logs by default).
 * `--report-output <FILENAME>` will write scan reports to a file.
+* `--report-json` if `--report-output` is passed, write as JSON instead of text.
 
 Run `sauron --help` for the complete list of options. 
 

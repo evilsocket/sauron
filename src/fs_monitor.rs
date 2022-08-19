@@ -49,7 +49,7 @@ pub(crate) fn start(args: Arguments, engine: Engine, report: Report) -> Result<(
                             let res = engine.scan(&path);
                             // handle reporting
                             if let Ok(mut report) = report.lock() {
-                                if let Err(e) = report.report(&path, res) {
+                                if let Err(e) = report.report(res) {
                                     log::error!("reporting error: {:?}", e);
                                 }
                             }
